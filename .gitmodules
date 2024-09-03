@@ -1,0 +1,6 @@
+[submodule "freedesktop-sdk-images"]
+	path = freedesktop-sdk-images
+	url = https://github.com/guihkx/freedesktop-sdk-images.git
+[submodule "freedesktop-sdk-base"]
+	path = freedesktop-sdk-base
+	url = https://github.com/guihkx/freedesktop-sdk-base.git

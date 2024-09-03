@@ -1,0 +1,26 @@
+# NOTE: To build this container correctly, you must have your BaseSdk OSTree repository directory (built from Dockerfile.base)
+#       named as 'sdk-base-repo' in the same directory of this Dockerfile.
+#
+# This is a base container that can be used to build the following flatpak runtimes:
+#
+# - org.freedesktop.Platform/i386/1.6
+# - org.freedesktop.Platform.Compat32/i386/1.6
+# - org.freedesktop.Platform.Locale/i386/1.6
+# - org.freedesktop.Sdk/i386/1.6
+# - org.freedesktop.Sdk.Debug/i386/1.6
+# - org.freedesktop.Sdk.Docs/i386/1.6
+# - org.freedesktop.Sdk.Locale/i386/1.6
+#
+# Check out the "Advanced" section in the README.md file for a complete step-by-step.
+FROM ubuntu:24.04
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends bzip2 ca-certificates elfutils flatpak-builder git locales make patch unzip xz-utils && \
+    apt-get clean
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen
+ENV LANG=en_US.UTF-8
+RUN --mount=type=bind,rw,source=sdk-base-repo,target=/sdk-base-repo \
+    flatpak --system remote-add --no-gpg-verify sdk-base /sdk-base-repo && \
+    flatpak --system install -y --noninteractive --no-related --no-deps sdk-base org.freedesktop.BasePlatform/i386/1.6 org.freedesktop.BaseSdk/i386/1.6 && \
+    flatpak --system remote-delete --force sdk-base
+WORKDIR /src

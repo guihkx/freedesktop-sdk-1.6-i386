@@ -1,0 +1,19 @@
+# This is a base container that can be used to build the following flatpak runtimes:
+#
+# - org.freedesktop.BasePlatform/i386/1.6
+# - org.freedesktop.BaseSdk/i386/1.6
+#
+# These are needed to later build the org.freedesktop.{Platform,Sdk}/i386/1.6 runtimes (see Dockerfile.main).
+#
+# Check out the "Advanced" section in the README.md file for a complete step-by-step.
+FROM ubuntu:18.04
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends ca-certificates binutils chrpath cpio debugedit diffstat file flatpak gawk git g++ locales make ostree patch python python3 texinfo wget && \
+    apt-get clean
+# Prevent git's 'fatal: detected dubious ownership in repository at ...' error.
+RUN git config --global safe.directory '*'
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen
+ENV LANG=en_US.UTF-8
+WORKDIR /src
