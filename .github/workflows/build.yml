@@ -1,0 +1,157 @@
+name: Build
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+  push:
+    branches:
+      - '**'
+    paths-ignore:
+      - '**.md'
+    tags-ignore:
+      - '**'
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+jobs:
+  base:
+    name: BasePlatform/BaseSdk 1.6 (i386)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Create base container to build BasePlatform/BaseSdk
+        run: podman build -t freedesktop-sdk-base -f Dockerfile.base .
+
+      - name: Restore Yocto's downloads directory from cache
+        uses: actions/cache/restore@v4
+        with:
+          key: yocto-downloads-dir-${{ github.run_id }}
+          path: freedesktop-sdk-base/build/downloads
+          restore-keys: yocto-downloads-dir
+
+      - name: Build BasePlatform/BaseSdk
+        id: build
+        run: |
+          mkdir -p freedesktop-sdk-base/build/i386/conf
+          touch freedesktop-sdk-base/build/i386/conf/sanity.conf
+          podman run --rm -v $(pwd):/src -t freedesktop-sdk-base make -C freedesktop-sdk-base ARCH=i386 REPO=../sdk-base-repo
+
+      - name: Save Yocto's downloads directory to cache on build failure
+        if: ${{ failure() && steps.build.conclusion == 'failure' }}
+        uses: actions/cache/save@v4
+        with:
+          key: yocto-downloads-dir-${{ github.run_id }}
+          path: freedesktop-sdk-base/build/downloads
+
+      - name: Create BasePlatform tarball
+        run: cd freedesktop-sdk-base/images/i386 && tar vacf ../../../freedesktop-contents-base-platform-1.6-i386.tar.zst freedesktop-contents-platform-*
+
+      - name: Upload BasePlatform tarball
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: freedesktop-contents-base-platform-1.6-i386.tar.zst
+          path: freedesktop-contents-base-platform-1.6-i386.tar.zst
+
+      - name: Create BaseSdk tarball
+        run: cd freedesktop-sdk-base/images/i386 && tar vacf ../../../freedesktop-contents-base-sdk-1.6-i386.tar.zst freedesktop-contents-sdk-*
+
+      - name: Upload BaseSdk tarball
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: freedesktop-contents-base-sdk-1.6-i386.tar.zst
+          path: freedesktop-contents-base-sdk-1.6-i386.tar.zst
+
+      - name: Create BasePlatform/BaseSdk OSTree repository tarball
+        run: tar acf ostree-repo-freedesktop-sdk-base-1.6-i386.tar.zst sdk-base-repo
+
+      - name: Upload BasePlatform/BaseSdk OSTree repository tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: ostree-repo-freedesktop-sdk-base-1.6-i386.tar.zst
+          path: ostree-repo-freedesktop-sdk-base-1.6-i386.tar.zst
+
+  main:
+    needs: base
+    name: Platform/Sdk 1.6 (i386)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Download BasePlatform/BaseSdk OSTree repository
+        uses: actions/download-artifact@v4
+        with:
+          name: ostree-repo-freedesktop-sdk-base-1.6-i386.tar.zst
+
+      - name: Decompress BasePlatform/BaseSdk OSTree repository tarball
+        run: tar --warning=no-timestamp -xf ostree-repo-freedesktop-sdk-base-1.6-i386.tar.zst
+
+      - name: Create base container to build Platform/Sdk
+        run: podman build -t freedesktop-sdk -f Dockerfile.main .
+
+      - name: Restore flatpak-builder's downloads directory from cache
+        uses: actions/cache/restore@v4
+        with:
+          key: flatpak-builder-downloads-dir-${{ github.run_id }}
+          path: freedesktop-sdk-images/.flatpak-builder/downloads
+          restore-keys: flatpak-builder-downloads-dir
+
+      - name: Build Platform/Sdk
+        run: |
+          podman run --cap-add net_admin,sys_admin --rm -v $(pwd):/src -t freedesktop-sdk make -C freedesktop-sdk-images ARCH=i386 FB_ARGS='--disable-rofiles-fuse --force-clean' REPO=../sdk-repo
+          podman run --rm -v $(pwd)/sdk-repo:/sdk-repo -t freedesktop-sdk flatpak build-update-repo --no-summary-index /sdk-repo
+
+      - name: Save flatpak-builder's downloads directory to cache
+        if: ${{ always() }}
+        uses: actions/cache/save@v4
+        with:
+          key: flatpak-builder-downloads-dir-${{ github.run_id }}
+          path: freedesktop-sdk-images/.flatpak-builder/downloads
+
+      - name: Create BasePlatform/BaseSdk OSTree repository tarball
+        run: tar vacf ostree-repo-freedesktop-sdk-1.6-i386.tar.zst sdk-repo
+
+      - name: Upload Platform/Sdk OSTree repository
+        uses: actions/upload-artifact@v4
+        with:
+          name: ostree-repo-freedesktop-sdk-1.6-i386.tar.zst
+          path: ostree-repo-freedesktop-sdk-1.6-i386.tar.zst
+
+  publish-release:
+    name: Publish Release
+    if: github.event_name == 'release'
+    needs:
+      - base
+      - main
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download build artifacts from previous jobs
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifactErrorsFailBuild: true
+          artifacts: artifacts/*
+          omitBodyDuringUpdate: true
+          omitNameDuringUpdate: true
