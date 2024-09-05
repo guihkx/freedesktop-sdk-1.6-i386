@@ -8,84 +8,80 @@ And even though we can still download and install the x86_64 build of 1.6 SDK di
 
 So, the ultimate purpose of this repository is to allow Flatpak users with NVIDIA GPUs to easily create a complete driver package locally, without having to wait on Flathub's long build/publish times.
 
-## Setting up
+## Installing
 
-These are all command-line instructions.
+> [!NOTE]
+> These are all command-line instructions.
 
-1\. Download the latest `.tar.zst` archive of the OSTree repository for the i386 Freedesktop 1.6 SDK:
+**1\.** Download the latest `.tar.zst` archive of the OSTree repository for the i386 Freedesktop 1.6 SDK:
 
 ```bash
 curl -LO https://github.com/guihkx/freedesktop-sdk-1.6-i386/releases/download/1.6-2024-09-03/ostree-repo-freedesktop-sdk-1.6-i386.tar.zst
 ```
 
-2\. Decompress the `.tar.zst` archive:
+**2\.** Decompress the `.tar.zst` archive:
 
 ```bash
-tar --warning=no-timestamp -xf ostree-repo-freedesktop-sdk-base-1.6-i386.tar.zst
+tar --warning=no-timestamp -xf ostree-repo-freedesktop-sdk-1.6-i386.tar.zst
 ```
 
-3\. You can now remove the downloaded `.tar.zst` archive:
+**3\.** You can now remove the downloaded `.tar.zst` archive:
 
 ```bash
-rm ostree-repo-freedesktop-sdk-base-1.6-i386.tar.zst
+rm ostree-repo-freedesktop-sdk-1.6-i386.tar.zst
 ```
 
-4\. Create a local Flatpak remote named `sdk-1.6-i368`, pointing to the `sdk-repo/` directory:
+**4\.** Create a local Flatpak remote named `sdk-1.6-i368`, pointing to the `sdk-repo/` directory we just extracted:
 
 ```bash
 flatpak --user remote-add --no-gpg-verify sdk-1.6-i386 sdk-repo/
 ```
 
-5\. You can now install the i386 1.6 Platform/SDK:
+**5\.** You can now install the i386 1.6 Platform/SDK:
 
 ```bash
-flatpak --user install --no-related sdk-1.6-i386 org.freedesktop.Platform/i386/1.6 
+flatpak --user install --no-related sdk-1.6-i386 org.freedesktop.Platform/i386/1.6
 flatpak --user install --no-related sdk-1.6-i386 org.freedesktop.Sdk/i386/1.6
 ```
 
-That's it! Feel free to check out the [NVIDIA drivers for Flatpak](https://github.com/flathub/org.freedesktop.Platform.GL.nvidia) repository for further instructions on how to build and package the drivers locally.
-
-## Uninstalling
-
-
-1\. Delete the local Flatpak remote (this **will not** automatically uninstall the SDK, but will make `flatpak update` show annoying warning messages while you have it installed):
+**6\.** You can now perform a general clean up:
 
 ```bash
-flatpak --user remote-delete --force sdk-1.6-i386
-```
-
-2\. Delete the `sdk-repo` directory:
-
-```bash
+# Disable the sdk-1.6-i368 Flatpak remote (we're not outright deleting it because that causes 'flatpak update' to display an annoying warning)
+flatpak --user remote-modify --disable sdk-1.6-i386
+# Delete the 'sdk-repo' repository
 rm -rf sdk-repo/
 ```
 
-3\. Uninstall the i386 1.6 Platform/SDK:
+Please note that the commands above **will not** also uninstall the i386 Freedesktop Platform/SDK.
+
+If you really want to do that, run these commands:
 
 ```bash
 flatpak --user uninstall org.freedesktop.Platform/i386/1.6
 flatpak --user uninstall org.freedesktop.Sdk/i386/1.6
+flatpak --user remote-delete --force sdk-1.6-i386
 ```
 
 ## Advanced
 
 This section explains how you can create a local build of the i386 1.6 SDK.
 
-This is a long process that requires lots of disk space, internet bandwidth, computer resources, and patience. I recommended you just download and use the pre-built OSTree repository of the i386 1.6 SDK, as explained in the [Setting up](#setting-up) section above.
+This is a long process that requires lots of disk space, internet bandwidth, computer resources, and patience. I recommended you just download and use the pre-built OSTree repository of the i386 1.6 SDK, as explained in the [Installing](#installing) section above.
 
 Disclaimer aside, you'll only need these two programs installed so we can begin:
 
 - Git
 - Podman (tested only with v4.9.3)
 
-1\. Clone this repository:
+**1\.** Clone this repository:
 
 ```
 git clone --recurse-submodules https://github.com/guihkx/freedesktop-sdk-1.6-i386.git
 cd freedesktop-sdk-1.6-i386/
 ```
 
-2\. We first have to build the i386 1.6 Freedesktop BasePlatform/BaseSdk runtimes, in order to later build the i386 Freedesktop 1.6 SDK itself:
+**2\.** We first have to build the i386 1.6 Freedesktop BasePlatform/BaseSdk runtimes, in order to later build the i386 Freedesktop 1.6 SDK itself:
 
 ```bash
 # Create a base container with pre-installed tools for building the BasePlatform/BaseSdk.
@@ -97,7 +93,7 @@ touch freedesktop-sdk-base/build/i386/conf/sanity.conf
 podman run --rm -v $(pwd):/src -it freedesktop-sdk-base make -C freedesktop-sdk-base ARCH=i386 REPO=../sdk-base-repo
 ```
 
-3\. We can now finally build the i386 Freedesktop 1.6 SDK:
+**3\.** We can now finally build the i386 Freedesktop 1.6 SDK:
 
 ```bash
 # Create a base container with pre-installed tools for building the Platform/Sdk.
@@ -114,4 +110,4 @@ podman run --rm -v $(pwd)/sdk-repo:/sdk-repo -t freedesktop-sdk flatpak build-up
 
 That's it! You should find your OSTree repository of the i386 1.6 SDK under the `sdk-repo` directory.
 
-You can now follow the [Setting up](#setting-up) section above to learn how to install the SDK from the repository.
+You can now follow the [Installing](#installing) section above to learn how to install the SDK from the repository.
