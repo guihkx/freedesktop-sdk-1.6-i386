@@ -24,3 +24,5 @@ RUN --mount=type=bind,rw,source=sdk-base-repo,target=/sdk-base-repo \
     flatpak --system install -y --noninteractive --no-related --no-deps sdk-base org.freedesktop.BasePlatform/i386/1.6 org.freedesktop.BaseSdk/i386/1.6 && \
     flatpak --system remote-delete --force sdk-base
 WORKDIR /src
+
+# vim: set syntax=dockerfile:
