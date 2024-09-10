@@ -10,7 +10,8 @@ FROM ubuntu:18.04
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends ca-certificates binutils chrpath cpio debugedit diffstat file flatpak gawk git g++ locales make ostree patch python python3 texinfo wget && \
-    apt-get clean
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists
 # Prevent git's 'fatal: detected dubious ownership in repository at ...' error.
 RUN git config --global safe.directory '*'
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
